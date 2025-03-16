@@ -44,6 +44,7 @@ void user_uart_println(char *string);
 
 /* Private macro -------------------------------------------------------------*/
 /* USER CODE BEGIN PM */
+#define ADC_DELAY 10 // in milliseconds 
 
 /* USER CODE END PM */
 
@@ -630,20 +631,45 @@ cli_status_t help_func(int argc, char **argv) {
   return CLI_OK;
 }
 cli_status_t vsense_func(int argc, char **argv) {
-  HAL_ADC_Start(&hadc1); // Needs to be called every time
-  HAL_ADC_PollForConversion(&hadc1, HAL_MAX_DELAY);
-  uint16_t value_adc_high = HAL_ADC_GetValue(&hadc1);
+  uint32_t adc_sum_high = 0; 
+  uint32_t adc_sum_low  = 0; 
   char buf[50];
+
+  // Reads ADC 10 times 
+  for(int i = 0; i<10; i++){
+    HAL_ADC_Start(&hadc1); // Needs to be called every time
+    HAL_ADC_PollForConversion(&hadc1, HAL_MAX_DELAY); 
+    adc_sum_high += HAL_ADC_GetValue(&hadc1);
+    HAL_Delay(ADC_DELAY);
+  }
+
+  uint16_t value_adc_high = adc_sum_high / 10; 
   sprintf(buf, "adc_high value %i\r\n", value_adc_high);
   cli.println(buf);
-  HAL_ADC_Start(&hadc2); // Needs to be called every time
-  HAL_ADC_PollForConversion(&hadc2, HAL_MAX_DELAY);
-  uint16_t value_adc_low = HAL_ADC_GetValue(&hadc2);
-  sprintf(buf, "adc_high value %i\r\n", value_adc_low);
+
+  // Reads ADC 10 times 
+  for(int i = 0; i<10; i++){
+    HAL_ADC_Start(&hadc2); // Needs to be called every time
+    HAL_ADC_PollForConversion(&hadc2, HAL_MAX_DELAY); 
+    adc_sum_low += HAL_ADC_GetValue(&hadc2);
+    HAL_Delay(ADC_DELAY);
+  }
+
+  uint16_t value_adc_low = adc_sum_low / 10; 
+  sprintf(buf, "adc_low value %i\r\n", value_adc_low); 
   cli.println(buf);
-  uint16_t vsense_unscaled = value_adc_high - value_adc_low;
-  sprintf(buf, "adc value %i\r\n", vsense_unscaled);
-  cli.println(buf);
+
+  uint16_t vsense_unscaled;
+  if( value_adc_high > value_adc_low){  // Adding this comparision to prevent overflow. 
+    vsense_unscaled = value_adc_high - value_adc_low;
+    sprintf(buf, "high>low adc value %i\r\n", vsense_unscaled); 
+    cli.println(buf);
+  }else {
+    vsense_unscaled = value_adc_low - value_adc_high;
+    sprintf(buf, "low>high adc value %i\r\n", vsense_unscaled); // Not sure if this case will be called, but it is here just in case. 
+    cli.println(buf);
+  }
+  
   float voltage =
       (float)vsense_unscaled * 0.04174358974; //  103.6 /(4095*2/3.3)
   uint16_t voltage_int = voltage * 100;
