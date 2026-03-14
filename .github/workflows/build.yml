@@ -1,4 +1,4 @@
-name: Build on Self-Hosted Server
+name: Build and Release ARM Firmware
 
 on:
   push:
@@ -6,22 +6,30 @@ on:
     tags: [ "v*" ]
 
 jobs:
-  build-and-deploy:
-    runs-on: self-hosted
+  build-and-release:
+    runs-on: ubuntu-latest
+    
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Compile Firmware
+      - name: Install ARM Toolchain
         run: |
-          # Since this runs on your server, it uses your local 'make' and 'gcc'
-          make clean
-          make -j5
+          sudo apt-get update
+          sudo apt-get install -y gcc-arm-none-eabi libnewlib-arm-none-eabi make
+
+      - name: Compile
+        run: |
+          # If your Makefile requires specific flags for the ARM compiler,
+          # make sure CC=arm-none-eabi-gcc is handled in your Makefile.
+          make
 
       - name: Create GitHub Release
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
-          files: build/vcu_test_tool.bin
+          files: |
+            files: build/vcu_test_tool.bin
+            # Add .hex or .elf files here if needed
         env:
           GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
