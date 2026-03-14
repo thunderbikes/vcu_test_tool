@@ -1,0 +1,28 @@
+name: Build on Self-Hosted Server
+
+on:
+  push:
+    branches: [ "main" ]
+    tags: [ "v*" ]
+
+jobs:
+  build-and-deploy:
+    runs-on: thinkcentre 
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Compile Firmware
+        run: |
+          # Since this runs on your server, it uses your local 'make' and 'gcc'
+          make clean
+          make -j5
+
+      - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: build/vcu_test_tool.bin
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
